@@ -4,8 +4,9 @@ const MAPS = {
   // sea: pixel to sample for the page backdrop, default is the most common non-black colour
   // (open water). fillBlack: paint unmapped
   // (fully black) 64-tile squares in that colour so the old map blends into the sea.
-  modern: { src: "https://cdn.runescape.com/assets/img/external/oldschool/world-map/2025-11-18/osrs_world_map.jpg", w: 6145, h: 4353, X0: 966, Y0: 4220, S: 2, sea: [6, 6] },
-  y2007: { src: "https://oldschool.runescape.wiki/images/World_Map_24_July_2007.png", w: 3712, h: 3328, X0: 2048, Y0: 4160, S: 2, fillBlack: true },
+  // seaColor: backdrop behind the image, replaced by the sampled water colour when the host allows pixel access.
+  modern: { src: "https://cdn.runescape.com/assets/img/external/oldschool/world-map/2025-11-18/osrs_world_map.jpg", w: 6145, h: 4353, X0: 966, Y0: 4220, S: 2, sea: [6, 6], seaColor: "#1f2c3f" },
+  y2007: { src: "https://oldschool.runescape.wiki/images/World_Map_24_July_2007.png", w: 3712, h: 3328, X0: 2048, Y0: 4160, S: 2, fillBlack: true, seaColor: "#576d9d" },
 };
 
 // Loads a map through a canvas: samples its sea colour and, for fillBlack maps, replaces
@@ -24,10 +25,12 @@ function prepareMap(name, fill) {
     const g = c.getContext("2d", { willReadFrequently: true });
     let data;
     try {
-      await im.decode();
+      // decode() rejects on images this large in Firefox, the load event does not.
+      await new Promise((res, rej) => { im.onload = res; im.onerror = () => rej(new Error("image load failed")); });
       g.drawImage(im, 0, 0);
       data = g.getImageData(0, 0, m.w, m.h);
-    } catch {
+    } catch (e) {
+      console.warn("Map pixels unavailable, using the plain image:", e.message);
       return { src: m.src, sea: null };
     }
     const d = data.data;
@@ -105,11 +108,12 @@ const map = (() => {
     prepareMap(Object.keys(MAPS).find((k) => MAPS[k] === m), fill).then(({ src, sea }) => {
       if (M !== m || hideUnknown !== fill) return;
       img.src = src;
-      if (sea) document.documentElement.style.setProperty("--sea", sea);
+      document.documentElement.style.setProperty("--sea", sea ?? m.seaColor);
     });
   };
   const layout = () => {
     img.src = M.src;
+    document.documentElement.style.setProperty("--sea", M.seaColor);
     loadImage();
     img.style.width = svg.style.width = `${M.w}px`;
     img.style.height = svg.style.height = `${M.h}px`;
@@ -124,7 +128,8 @@ const map = (() => {
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
     localStorage.setItem("view", JSON.stringify(view));
   };
-  const minScale = () => Math.min(el.clientWidth / M.w, el.clientHeight / M.h) * 0.9;
+  // Zoomed all the way out the image still covers the pane, no backdrop showing.
+  const minScale = () => Math.max(el.clientWidth / M.w, el.clientHeight / M.h);
   const clamp = () => {
     view.s = Math.min(Math.max(view.s, minScale()), 3);
     const w = M.w * view.s, h = M.h * view.s;
