@@ -88,7 +88,7 @@ const map = (() => {
     polys.forEach((p, k) => p.classList.toggle("zone-hover", zoneOfArea[k] === zi));
   };
   el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || e.target.closest(".map-controls")) return;
+    if (e.button !== 0 || e.target.closest(".map-controls, .map-toggle")) return;
     drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
     el.setPointerCapture(e.pointerId);
   });
