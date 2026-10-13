@@ -18,7 +18,8 @@
   --map: 2fr;
   --gap: 10px;
 
-  --bg: #2e2f2a;
+  --sea: #6f8fc4; /* overwritten at runtime with the loaded map's water colour */
+  --bg: var(--sea);
   --stone-dark: #1c1a16;
   --stone-text: #d8cfb8;
   --slab: #4b4b4b;
@@ -62,8 +63,7 @@ body {
   padding: var(--gap);
   font: var(--font-size)/1.25 var(--font);
   color: var(--text);
-  background: var(--bg) url("assets/bricks.png") repeat;
-  background-size: 190px 300px;
+  background: var(--bg);
   overflow: hidden;
 }
 
@@ -72,8 +72,7 @@ body {
 
 .map {
   position: relative;
-  overflow: hidden;
-  background: #1f2c3f;
+  background: var(--sea);
   border: 26px solid transparent;
   border-image: url("assets/stone-frame.png") 26 round;
   cursor: grab;
@@ -81,6 +80,7 @@ body {
   user-select: none;
 }
 .map:active { cursor: grabbing; }
+.map .viewport { position: absolute; inset: 0; overflow: hidden; }
 .world {
   position: absolute;
   top: 0;
@@ -111,14 +111,21 @@ body {
   gap: 4px;
 }
 .map-controls .btn { width: 36px; height: 32px; font-size: 18px; }
-.map-toggle {
+.map-toggles {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  bottom: -23px;
+  right: 14px;
   z-index: 2;
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  gap: 6px;
+}
+.map-toggles .check {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.6);
   border: 1px solid var(--btn-border);
+  border-radius: 3px;
   text-shadow: 1px 1px 0 #000;
 }
 

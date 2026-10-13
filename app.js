@@ -267,6 +267,11 @@ $("oldmap").addEventListener("change", (e) => {
   localStorage.setItem("oldmap", state.oldMap ? "1" : "0");
   map.setMap(state.oldMap ? "y2007" : "modern");
 });
+$("hideunknown").addEventListener("change", (e) => {
+  localStorage.setItem("hideunknown", e.target.checked ? "1" : "0");
+  map.setHideUnknown(e.target.checked);
+});
+$("hideunknown").checked = localStorage.getItem("hideunknown") !== "0";
 $("side").addEventListener("click", () => {
   const left = document.body.classList.toggle("side-left");
   localStorage.setItem("side", left ? "left" : "right");

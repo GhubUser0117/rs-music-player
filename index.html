@@ -9,6 +9,7 @@
 </head>
 <body>
 <section class="map" id="map">
+  <div class="viewport">
   <div class="world" id="world">
     <img id="map-img" alt="RuneScape world map" draggable="false">
     <svg id="areas" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -18,9 +19,13 @@
     <button class="btn" id="zoom-out" type="button" title="Zoom out">&minus;</button>
     <button class="btn" id="locate" type="button" title="Find the playing track on the map">&#9678;</button>
   </div>
-  <label class="check map-toggle" title="Show the world map as it was in July 2007"><input type="checkbox" id="oldmap"> 2007 map</label>
   <div class="tooltip" id="tooltip" hidden></div>
   <div class="map-hint">Drag to pan, scroll to zoom, click an area to play its music</div>
+  </div>
+  <div class="map-toggles">
+    <label class="check" title="Show the world map as it was in July 2007"><input type="checkbox" id="oldmap"> 2007 map</label>
+    <label class="check" title="Paint the map's black no-data squares in the water colour"><input type="checkbox" id="hideunknown"> Hide unknown</label>
+  </div>
 </section>
 
 <aside class="panel">
