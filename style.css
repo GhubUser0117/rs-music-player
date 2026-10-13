@@ -43,6 +43,7 @@
   --area-fill: rgba(255, 255, 255, 0);
   --area-stroke: rgba(255, 255, 255, 0.12);
   --area-hover: rgba(255, 255, 0, 0.3);
+  --area-hover-stroke: #ffffff;
   --zone-hover: rgba(255, 255, 255, 0.08);
   --area-playing: rgba(0, 255, 255, 0.28);
   --area-playing-stroke: #00ffff;
@@ -96,7 +97,7 @@ body {
   pointer-events: fill;
 }
 .world polygon.zone-hover { fill: var(--zone-hover); }
-.world polygon:hover { fill: var(--area-hover); }
+.world polygon:hover { fill: var(--area-hover); stroke: var(--area-hover-stroke); stroke-width: 2; }
 .world polygon.playing { fill: var(--area-playing); stroke: var(--area-playing-stroke); stroke-width: 2; }
 .world polygon.hidden, .world polygon.offmap { display: none; }
 
