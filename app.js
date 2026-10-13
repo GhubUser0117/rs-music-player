@@ -1,0 +1,282 @@
+const BASE = "https://oldschool.runescape.wiki/images/";
+const WIKI = "https://oldschool.runescape.wiki/w/";
+const $ = (id) => document.getElementById(id);
+
+const audio = $("audio");
+const list = $("list");
+const zoneOf = [];
+ZONES.forEach((z, zi) => z.t.forEach((t) => (zoneOf[t] = zi)));
+const byName = (a, b) => TRACKS[a].name.localeCompare(TRACKS[b].name);
+
+const state = {
+  index: -1,
+  ctx: null, // { name, tracks, played } while playing from a zone, null for the whole list
+  shuffle: localStorage.getItem("shuffle") === "1",
+  repeat: localStorage.getItem("repeat") === "1",
+  byZone: localStorage.getItem("byzone") !== "0",
+  visible: [],
+  visibleSet: new Set(),
+};
+
+const FILTERS = {
+  all: () => true,
+  f2p: (t) => !t.p2p,
+  p2p: (t) => t.p2p,
+  holiday: (t) => t.holiday,
+  exclusive: (t) => t.exclusive,
+};
+
+const fmt = (s) => {
+  if (!Number.isFinite(s)) return "00:00";
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+};
+
+const LVL_MAX = 130; // midpoint level that reads as fully red
+const levels = (z) => !z?.lv ? "lvl ?" : z.lv[1] <= 5 ? "safe" : `lvl ${z.lv[0]} to ${z.lv[1]}`;
+const zoneCtx = (name, tracks) => ({ name, tracks: [...new Set(tracks)].sort(byName), played: new Set() });
+
+function makeLi(i) {
+  const t = TRACKS[i];
+  const li = document.createElement("li");
+  li.dataset.index = i;
+  li.className = `${t.p2p ? "p2p" : ""} ${t.holiday ? "holiday" : ""} ${i === state.index ? "playing" : ""}`;
+  li.innerHTML = `<span class="name"></span><span class="len">${t.len}</span>`;
+  li.querySelector(".name").textContent = t.name;
+  return li;
+}
+
+function render() {
+  const q = $("search").value.trim().toLowerCase();
+  const keep = FILTERS[$("filter").value];
+  const maxYear = Number($("era").value);
+  state.visible = TRACKS.flatMap((t, i) =>
+    keep(t) &&
+    Number(t.date.slice(-4)) <= maxYear &&
+    (!q || t.name.toLowerCase().includes(q) || t.unlock.toLowerCase().includes(q))
+      ? [i]
+      : []
+  );
+  state.visibleSet = new Set(state.visible);
+
+  if (state.byZone) {
+    list.replaceChildren(
+      ...ZONES.flatMap((z, zi) => {
+        const items = z.t.filter((i) => state.visibleSet.has(i));
+        if (!items.length) return [];
+        const d = document.createElement("details");
+        d.className = "zone";
+        d.dataset.zone = zi;
+        d.open = items.includes(state.index);
+        d.innerHTML = `<summary></summary><ol></ol>`;
+        const lvl = Object.assign(document.createElement("span"), { className: `lvl ${z.lv ? "" : "unknown"}`, textContent: levels(z) });
+        if (z.lv) lvl.style.setProperty("--hue", 120 - Math.min((z.lv[0] + z.lv[1]) / 2, LVL_MAX) / LVL_MAX * 120);
+        d.querySelector("summary").append(z.n, " ", Object.assign(document.createElement("span"), { className: "count", textContent: `${items.length} · ` }), lvl);
+        d.querySelector("ol").append(...items.map(makeLi));
+        return [d];
+      })
+    );
+  } else {
+    list.replaceChildren(...state.visible.map(makeLi));
+  }
+  $("status").textContent = `Tracks: ${state.visible.length} / ${TRACKS.length}`;
+  map.setVisible((i) => state.visibleSet.has(i));
+  showQueue();
+}
+
+// Tracks of the current context after filters; the list itself when nothing is left.
+function queue() {
+  const pool = state.ctx ? state.ctx.tracks.filter((i) => state.visibleSet.has(i)) : state.visible;
+  return pool.length ? pool : state.visible;
+}
+
+// Next zone (by level order) that still has tracks after filters, wrapping around.
+function nextZone(dir) {
+  let zi = ZONES.findIndex((z) => z.n === state.ctx.name);
+  if (zi < 0) zi = zoneOf[state.index] ?? 0;
+  for (let k = 1; k <= ZONES.length; k++) {
+    const z = ZONES[(zi + dir * k + ZONES.length * k) % ZONES.length];
+    if (z.t.some((i) => state.visibleSet.has(i))) return z;
+  }
+  return null;
+}
+
+// What plays after a step: the track, plus a new context when the zone is done.
+function resolve(dir) {
+  const pool = queue();
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const hop = () => {
+    const z = nextZone(dir);
+    if (!z) return { i: state.index };
+    const ctx = zoneCtx(z.n, z.t);
+    const tracks = ctx.tracks.filter((i) => state.visibleSet.has(i));
+    return { i: state.shuffle ? pick(tracks) : tracks[dir > 0 ? 0 : tracks.length - 1], ctx };
+  };
+  if (state.shuffle) {
+    const left = pool.filter((i) => i !== state.index && !state.ctx?.played.has(i));
+    if (left.length) return { i: pick(left) };
+    if (state.ctx) return hop();
+    const rest = state.visible.filter((i) => i !== state.index);
+    return { i: rest.length ? pick(rest) : state.index };
+  }
+  const pos = pool.indexOf(state.index) + dir;
+  if (state.ctx && (pos < 0 || pos >= pool.length)) return hop();
+  return { i: pool[(pos + pool.length) % pool.length] };
+}
+
+function step(dir) {
+  if (!state.visible.length) return;
+  const r = resolve(dir);
+  if (r.ctx) state.ctx = r.ctx;
+  play(r.i);
+}
+
+function showQueue() {
+  const box = $("now-queue");
+  box.replaceChildren();
+  const ctx = state.ctx;
+  const pool = ctx ? queue() : [];
+  $("now-from").textContent = ctx ? `${ctx.name} (${pool.indexOf(state.index) + 1} of ${pool.length})` : "All music";
+  if (ctx && pool.length <= 15) {
+    pool.forEach((t) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = TRACKS[t].name;
+      b.classList.toggle("current", t === state.index);
+      b.classList.toggle("done", ctx.played.has(t) && t !== state.index);
+      b.addEventListener("click", () => play(t));
+      box.append(b);
+    });
+  }
+  const next = state.index < 0 || !state.visible.length ? null : state.shuffle ? "shuffle" : TRACKS[resolve(1).i].name;
+  $("now-next").textContent = next ?? "";
+}
+
+function play(i) {
+  const t = TRACKS[i];
+  if (!t) return;
+  state.index = i;
+  state.ctx?.played.add(i);
+  audio.src = BASE + encodeURIComponent(t.file);
+  audio.play().catch(() => {});
+  localStorage.setItem("last", i);
+  localStorage.setItem("ctx", state.ctx?.name ?? "");
+
+  $("now-title").textContent = t.name;
+  $("now-meta").textContent = `${t.p2p ? "Members" : "Free to play"} · ${t.len} · ${t.date}`;
+  $("now-unlock").innerHTML = "";
+  $("now-unlock").append(t.unlock + " ", Object.assign(document.createElement("a"), {
+    href: WIKI + encodeURIComponent(t.name.replaceAll(" ", "_")), target: "_blank", textContent: "[wiki]",
+  }));
+  document.title = `${t.name} · OSRS Music`;
+  const z = ZONES[zoneOf[i]];
+  $("now-fig").hidden = !z?.page;
+  $("now-img").hidden = !z?.img;
+  if (z?.img) $("now-img").src = z.img;
+  if (z?.page) {
+    $("now-zone").textContent = z.page;
+    $("now-zone").href = WIKI + encodeURIComponent(z.page.replaceAll(" ", "_"));
+  }
+
+  list.querySelector(".playing")?.classList.remove("playing");
+  const li = list.querySelector(`[data-index="${i}"]`);
+  li?.classList.add("playing");
+  if (li?.closest("details")) li.closest("details").open = true;
+  li?.scrollIntoView({ block: "nearest" });
+  map.highlight(i);
+  showQueue();
+}
+
+function togglePlay() {
+  if (state.index < 0) return step(1);
+  if (!audio.src) return play(state.index); // restored from a previous visit, nothing loaded yet
+  audio.paused ? audio.play() : audio.pause();
+}
+
+function setToggle(key, on) {
+  state[key] = on;
+  $(key).classList.toggle("on", on);
+  localStorage.setItem(key, on ? "1" : "0");
+}
+
+list.addEventListener("click", (e) => {
+  const li = e.target.closest("li");
+  if (!li) return;
+  const i = Number(li.dataset.index);
+  const zi = li.closest("details")?.dataset.zone;
+  state.ctx = zi === undefined ? null : zoneCtx(ZONES[zi].n, ZONES[zi].t);
+  play(i);
+  map.focus(i);
+});
+$("map").addEventListener("areaclick", (e) => {
+  const a = AREAS[e.detail];
+  const z = ZONES[zoneOf[a.t[0]]];
+  state.ctx = a.t.length > 1 ? zoneCtx(a.n, a.t) : z ? zoneCtx(z.n, z.t) : null;
+  // Region click starts at the top of its sorted queue; a single-track spot plays that track.
+  play(a.t.length > 1 ? queue()[0] : a.t[0]);
+});
+$("search").addEventListener("input", render);
+$("filter").addEventListener("change", render);
+$("era").addEventListener("change", render);
+$("byzone").addEventListener("change", (e) => {
+  state.byZone = e.target.checked;
+  localStorage.setItem("byzone", state.byZone ? "1" : "0");
+  $("expand").disabled = $("collapse").disabled = !state.byZone;
+  render();
+});
+$("side").addEventListener("click", () => {
+  const left = document.body.classList.toggle("side-left");
+  localStorage.setItem("side", left ? "left" : "right");
+});
+document.body.classList.toggle("side-left", localStorage.getItem("side") === "left");
+const setAll = (open) => () => list.querySelectorAll("details").forEach((d) => (d.open = open));
+$("expand").addEventListener("click", setAll(true));
+$("collapse").addEventListener("click", setAll(false));
+$("play").addEventListener("click", togglePlay);
+$("next").addEventListener("click", () => step(1));
+$("prev").addEventListener("click", () => step(-1));
+$("shuffle").addEventListener("click", () => { setToggle("shuffle", !state.shuffle); showQueue(); });
+$("repeat").addEventListener("click", () => setToggle("repeat", !state.repeat));
+$("volume").addEventListener("input", (e) => {
+  audio.volume = e.target.value;
+  localStorage.setItem("volume", e.target.value);
+});
+$("progress").addEventListener("click", (e) => {
+  if (audio.duration) audio.currentTime = (e.offsetX / e.currentTarget.clientWidth) * audio.duration;
+});
+
+audio.addEventListener("play", () => ($("play").innerHTML = "&#10074;&#10074;"));
+audio.addEventListener("pause", () => ($("play").innerHTML = "&#9654;"));
+audio.addEventListener("timeupdate", () => {
+  $("t-cur").textContent = fmt(audio.currentTime);
+  $("t-dur").textContent = fmt(audio.duration);
+  $("progress-fill").style.width = audio.duration ? `${(audio.currentTime / audio.duration) * 100}%` : "0";
+});
+audio.addEventListener("ended", () => (state.repeat ? play(state.index) : step(1)));
+audio.addEventListener("error", () => {
+  $("now-unlock").textContent = `Could not load ${TRACKS[state.index]?.file}. Skipping.`;
+  setTimeout(() => step(1), 1500);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, select")) return;
+  if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+  if (e.code === "ArrowRight") step(1);
+  if (e.code === "ArrowLeft") step(-1);
+});
+
+audio.volume = $("volume").value = localStorage.getItem("volume") ?? 0.7;
+setToggle("shuffle", state.shuffle);
+setToggle("repeat", state.repeat);
+$("byzone").checked = state.byZone;
+$("expand").disabled = $("collapse").disabled = !state.byZone;
+const last = Number(localStorage.getItem("last"));
+if (TRACKS[last]) {
+  state.index = last;
+  const z = ZONES.find((z) => z.n === localStorage.getItem("ctx"));
+  if (z) state.ctx = zoneCtx(z.n, z.t);
+  $("now-title").textContent = TRACKS[last].name;
+  $("now-unlock").textContent = TRACKS[last].unlock;
+  map.highlight(last);
+}
+render();

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSRS Music Map</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<section class="map" id="map">
+  <div class="world" id="world">
+    <img id="map-img" src="https://cdn.runescape.com/assets/img/external/oldschool/world-map/2025-11-18/osrs_world_map.jpg" alt="Old School RuneScape world map" draggable="false">
+    <svg id="areas" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="tooltip" id="tooltip" hidden></div>
+  <div class="map-hint">Drag to pan, scroll to zoom, click an area to play its music</div>
+</section>
+
+<aside class="panel">
+  <h1 class="plaque">Music Player <button class="btn text side" id="side" type="button" title="Move the sidebar to the other side">&#8646;</button></h1>
+
+  <section class="now">
+    <figure class="now-fig" id="now-fig" hidden>
+      <img id="now-img" alt="">
+      <figcaption><a id="now-zone" target="_blank" rel="noopener"></a></figcaption>
+    </figure>
+    <div class="now-row head"><span class="label">Playing:</span> <span class="title" id="now-title">Nothing</span><span class="next"><span class="label">Next:</span> <span id="now-next"></span></span></div>
+    <div class="now-meta" id="now-meta"></div>
+    <div class="now-unlock" id="now-unlock">Click an area on the map or pick a track from the list.</div>
+    <div class="now-row from"><span class="label">From:</span> <span id="now-from">All music</span></div>
+    <div class="now-queue" id="now-queue"></div>
+    <div class="progress" id="progress"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="times"><span id="t-cur">00:00</span><span id="t-dur">00:00</span></div>
+  </section>
+
+  <div class="toolbar">
+    <button class="btn" id="prev" title="Previous (left arrow)">&#9664;&#9664;</button>
+    <button class="btn" id="play" title="Play / pause (space)">&#9654;</button>
+    <button class="btn" id="next" title="Next (right arrow)">&#9654;&#9654;</button>
+    <button class="btn toggle" id="shuffle" title="Shuffle">&#8644;</button>
+    <button class="btn toggle" id="repeat" title="Repeat one">&#8635;</button>
+    <label class="volume" title="Volume">
+      <span>&#128266;</span>
+      <input type="range" id="volume" min="0" max="1" step="0.02" value="0.7">
+    </label>
+  </div>
+
+  <div class="filters">
+    <input type="search" id="search" placeholder="Search tracks..." autocomplete="off">
+    <select id="era">
+      <option value="2007">Up to 2007</option>
+      <option value="9999">All years</option>
+    </select>
+    <select id="filter">
+      <option value="all">All music</option>
+      <option value="f2p">Free to play</option>
+      <option value="p2p">Members</option>
+      <option value="holiday">Holiday</option>
+      <option value="exclusive">OSRS exclusive</option>
+    </select>
+  </div>
+
+  <div class="viewbar">
+    <label class="check" title="Group the list by zone"><input type="checkbox" id="byzone"> By zone</label>
+    <button class="btn text" id="expand" type="button">Expand all</button>
+    <button class="btn text" id="collapse" type="button">Collapse all</button>
+  </div>
+
+  <ol class="list" id="list"></ol>
+
+  <footer class="status" id="status"></footer>
+</aside>
+
+<audio id="audio" preload="none"></audio>
+<script src="tracks.js"></script>
+<script src="areas.js"></script>
+<script src="map.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
