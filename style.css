@@ -18,8 +18,8 @@
   --map: 2fr;
   --gap: 10px;
 
-  --sea: #6f8fc4; /* overwritten at runtime with the loaded map's water colour */
-  --bg: var(--sea);
+  --sea: #6f8fc4; /* map backdrop, overwritten at runtime with the loaded map's water colour */
+  --bg: #2e2f2a;
   --stone-dark: #1c1a16;
   --stone-text: #d8cfb8;
   --slab: #4b4b4b;
@@ -63,7 +63,8 @@ body {
   padding: var(--gap);
   font: var(--font-size)/1.25 var(--font);
   color: var(--text);
-  background: var(--bg);
+  background: var(--bg) url("assets/bricks.png") repeat;
+  background-size: 190px 300px;
   overflow: hidden;
 }
 
