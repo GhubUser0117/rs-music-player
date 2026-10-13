@@ -5,6 +5,8 @@ const MAPS = {
   y2007: { src: "https://oldschool.runescape.wiki/images/World_Map_24_July_2007.png", w: 3712, h: 3328, X0: 2048, Y0: 4160, S: 2 },
 };
 
+const LVL_MAX = 130; // midpoint level that reads as fully red
+const levels = (z) => !z?.lv ? "lvl ?" : z.lv[1] <= 5 ? "safe" : `lvl ${z.lv[0]} to ${z.lv[1]}`;
 const zoneOf = [];
 ZONES.forEach((z, zi) => z.t.forEach((t) => (zoneOf[t] = zi)));
 

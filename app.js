@@ -31,8 +31,6 @@ const fmt = (s) => {
   return `${String(m).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 };
 
-const LVL_MAX = 130; // midpoint level that reads as fully red
-const levels = (z) => !z?.lv ? "lvl ?" : z.lv[1] <= 5 ? "safe" : `lvl ${z.lv[0]} to ${z.lv[1]}`;
 const zoneCtx = (name, tracks) => ({ name, tracks: [...new Set(tracks)].sort(byName), played: new Set() });
 const fullImage = (thumb) => thumb.replace(/\/images\/thumb\/(.+?)\/\d+px-[^?]+/, "/images/$1").replace(/\?.*$/, "");
 
