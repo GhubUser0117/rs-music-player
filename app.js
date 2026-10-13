@@ -189,7 +189,7 @@ function play(i) {
   state.index = i;
   state.ctx?.played.add(i);
   audio.src = BASE + encodeURIComponent(t.file);
-  audio.play().catch(() => {});
+  audio.play().catch(armAutoplay);
   localStorage.setItem("last", i);
   localStorage.setItem("ctx", state.ctx?.name ?? "");
   history.replaceState(null, "", `#${encodeURIComponent(t.name)}`);
@@ -205,6 +205,17 @@ function play(i) {
   revealInList(i);
   map.highlight(i);
   showQueue();
+}
+
+// Browsers block sound until the page has been clicked or typed in. Wait for that, then start.
+function armAutoplay() {
+  document.body.classList.add("needs-click");
+  const go = () => {
+    document.body.classList.remove("needs-click");
+    audio.play().catch(() => {});
+  };
+  document.addEventListener("pointerdown", go, { once: true, capture: true });
+  document.addEventListener("keydown", go, { once: true, capture: true });
 }
 
 function togglePlay() {

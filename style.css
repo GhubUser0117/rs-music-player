@@ -241,6 +241,11 @@ body.side-left { grid-template-columns: var(--sidebar) var(--map); }
   cursor: pointer;
 }
 .btn:hover { filter: brightness(1.3); }
+body.needs-click #play { animation: pulse 1s ease-in-out infinite; border-color: var(--label); }
+body.needs-click .map-hint { opacity: 1; color: var(--label); }
+body.needs-click .map-hint::before { content: "Click anywhere to start the music. "; }
+@keyframes pulse { 50% { filter: brightness(1.8); } }
+@media (prefers-reduced-motion: reduce) { body.needs-click #play { animation: none; } }
 .btn:active, .btn.on { color: var(--btn-active); border-color: var(--btn-active); }
 .volume { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .volume input { width: 80px; accent-color: var(--btn-border); }
