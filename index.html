@@ -4,13 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OSRS Music Map</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%233e3222' stroke='%238c7444' stroke-width='3'/%3E%3Cpath d='M12 23V9l10-2v13' fill='none' stroke='%23ffff00' stroke-width='2.5' stroke-linejoin='round'/%3E%3Ccircle cx='9.5' cy='23' r='3' fill='%23ffff00'/%3E%3Ccircle cx='19.5' cy='20.5' r='3' fill='%23ffff00'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <section class="map" id="map">
   <div class="world" id="world">
-    <img id="map-img" src="https://cdn.runescape.com/assets/img/external/oldschool/world-map/2025-11-18/osrs_world_map.jpg" alt="Old School RuneScape world map" draggable="false">
+    <img id="map-img" alt="RuneScape world map" draggable="false">
     <svg id="areas" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="map-controls">
+    <button class="btn" id="zoom-in" type="button" title="Zoom in">+</button>
+    <button class="btn" id="zoom-out" type="button" title="Zoom out">&minus;</button>
+    <button class="btn" id="locate" type="button" title="Find the playing track on the map">&#9678;</button>
   </div>
   <div class="tooltip" id="tooltip" hidden></div>
   <div class="map-hint">Drag to pan, scroll to zoom, click an area to play its music</div>
@@ -62,14 +68,20 @@
 
   <div class="viewbar">
     <label class="check" title="Group the list by zone"><input type="checkbox" id="byzone"> By zone</label>
+    <label class="check" title="Show the world map as it was in July 2007"><input type="checkbox" id="oldmap"> 2007 map</label>
     <button class="btn text" id="expand" type="button">Expand all</button>
     <button class="btn text" id="collapse" type="button">Collapse all</button>
   </div>
 
   <ol class="list" id="list"></ol>
 
-  <footer class="status" id="status"></footer>
+  <footer class="status">
+    <div id="status"></div>
+    <div class="about">Fan project. Music, unlock areas and pictures from the <a href="https://oldschool.runescape.wiki/" target="_blank" rel="noopener">OSRS Wiki</a> (CC BY-NC-SA), world maps by Jagex. <a href="https://github.com/GhubUser0117/rs-music-player" target="_blank" rel="noopener">Source</a></div>
+  </footer>
 </aside>
+
+<dialog class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></dialog>
 
 <audio id="audio" preload="none"></audio>
 <script src="tracks.js"></script>

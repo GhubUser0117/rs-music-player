@@ -1,27 +1,28 @@
-// Game tile (x, y) to image pixel: px = (x - X0) * SCALE, py = (Y0 - y) * SCALE.
-// ponytail: calibrated by eye against the official map, tweak these if polygons drift.
-const CAL = { X0: 966, Y0: 4220, SCALE: 2.0 };
-const IMG_W = 6145, IMG_H = 4353;
+// Game tile (x, y) to image pixel: px = (x - X0) * S, py = (Y0 - y) * S.
+// ponytail: calibrated by eye against the music polygons, tweak if they drift.
+const MAPS = {
+  modern: { src: "https://cdn.runescape.com/assets/img/external/oldschool/world-map/2025-11-18/osrs_world_map.jpg", w: 6145, h: 4353, X0: 966, Y0: 4220, S: 2 },
+  y2007: { src: "https://oldschool.runescape.wiki/images/World_Map_24_July_2007.png", w: 3712, h: 3328, X0: 2048, Y0: 4160, S: 2 },
+};
+
+const zoneOf = [];
+ZONES.forEach((z, zi) => z.t.forEach((t) => (zoneOf[t] = zi)));
 
 const map = (() => {
   const el = document.getElementById("map");
   const world = document.getElementById("world");
+  const img = document.getElementById("map-img");
   const svg = document.getElementById("areas");
   const tooltip = document.getElementById("tooltip");
+  let M = MAPS[localStorage.getItem("oldmap") !== "0" ? "y2007" : "modern"];
   const view = { x: 0, y: 0, s: 0.6 };
-  const toPx = ([x, y]) => [(x - CAL.X0) * CAL.SCALE, (CAL.Y0 - y) * CAL.SCALE];
+  const toPx = ([x, y]) => [(x - M.X0) * M.S, (M.Y0 - y) * M.S];
+  const fromPx = ([px, py]) => [px / M.S + M.X0, M.Y0 - py / M.S];
+  const zoneOfArea = AREAS.map((a) => zoneOf[a.t[0]]);
 
-  // Dungeons and instances live at scrambled offsets on the wiki's composite map,
-  // outside the official image. Those areas have no place on this map.
-  const onMap = (a) => a.p.every((pt) => {
-    const [x, y] = toPx(pt);
-    return x >= 0 && y >= 0 && x <= IMG_W && y <= IMG_H;
-  });
   const polys = AREAS.map((a, i) => {
     const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    p.setAttribute("points", a.p.map((pt) => toPx(pt).map((v) => v.toFixed(1)).join(",")).join(" "));
     p.dataset.i = i;
-    if (!onMap(a)) p.classList.add("offmap");
     return p;
   });
   // Big regions first so small areas on top win the hit test.
@@ -29,17 +30,33 @@ const map = (() => {
     const [nx, ny] = pts[(i + 1) % pts.length];
     return s + x * ny - nx * y;
   }, 0));
-  svg.setAttribute("viewBox", `0 0 ${IMG_W} ${IMG_H}`);
   svg.append(...polys.slice().sort((a, b) => area(AREAS[b.dataset.i].p) - area(AREAS[a.dataset.i].p)));
+
+  // Dungeons and instances live at scrambled offsets on the wiki's composite map,
+  // outside the official images. Those areas have no place on the map.
+  const onMap = (a) => a.p.every((pt) => {
+    const [x, y] = toPx(pt);
+    return x >= 0 && y >= 0 && x <= M.w && y <= M.h;
+  });
+  const layout = () => {
+    img.src = M.src;
+    img.style.width = svg.style.width = `${M.w}px`;
+    img.style.height = svg.style.height = `${M.h}px`;
+    svg.setAttribute("viewBox", `0 0 ${M.w} ${M.h}`);
+    polys.forEach((p, i) => {
+      p.setAttribute("points", AREAS[i].p.map((pt) => toPx(pt).map((v) => v.toFixed(1)).join(",")).join(" "));
+      p.classList.toggle("offmap", !onMap(AREAS[i]));
+    });
+  };
 
   const apply = () => {
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
     localStorage.setItem("view", JSON.stringify(view));
   };
-  const minScale = () => Math.min(el.clientWidth / IMG_W, el.clientHeight / IMG_H) * 0.9;
+  const minScale = () => Math.min(el.clientWidth / M.w, el.clientHeight / M.h) * 0.9;
   const clamp = () => {
     view.s = Math.min(Math.max(view.s, minScale()), 3);
-    const w = IMG_W * view.s, h = IMG_H * view.s;
+    const w = M.w * view.s, h = M.h * view.s;
     view.x = w < el.clientWidth ? (el.clientWidth - w) / 2 : Math.min(Math.max(view.x, el.clientWidth - w), 0);
     view.y = h < el.clientHeight ? (el.clientHeight - h) / 2 : Math.min(Math.max(view.y, el.clientHeight - h), 0);
   };
@@ -51,10 +68,25 @@ const map = (() => {
     clamp();
     apply();
   };
+  const centerOn = (gx, gy, s = view.s) => {
+    const [px, py] = toPx([gx, gy]);
+    view.s = s;
+    view.x = el.clientWidth / 2 - px * s;
+    view.y = el.clientHeight / 2 - py * s;
+    clamp();
+    apply();
+  };
+  const centerGame = () => fromPx([(el.clientWidth / 2 - view.x) / view.s, (el.clientHeight / 2 - view.y) / view.s]);
 
   let drag = null;
+  let hoverZone = -1;
+  const setHoverZone = (zi) => {
+    if (zi === hoverZone) return;
+    hoverZone = zi;
+    polys.forEach((p, k) => p.classList.toggle("zone-hover", zoneOfArea[k] === zi));
+  };
   el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.target.closest(".map-controls")) return;
     drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
     el.setPointerCapture(e.pointerId);
   });
@@ -69,9 +101,10 @@ const map = (() => {
     }
     const i = e.target.dataset?.i;
     tooltip.hidden = i === undefined;
+    setHoverZone(i === undefined ? -1 : zoneOfArea[i]);
     if (i !== undefined) {
       const a = AREAS[i];
-      const z = ZONES[zoneOf[a.t[0]]];
+      const z = ZONES[zoneOfArea[i]];
       tooltip.textContent = `${a.n} (${levels(z)}): ${a.t.map((t) => TRACKS[t].name).join(", ")}`;
       const r = el.getBoundingClientRect();
       tooltip.style.left = `${e.clientX - r.left + 14}px`;
@@ -85,52 +118,51 @@ const map = (() => {
     const i = document.elementFromPoint(e.clientX, e.clientY)?.dataset?.i;
     if (!moved && i !== undefined) el.dispatchEvent(new CustomEvent("areaclick", { detail: Number(i) }));
   });
-  el.addEventListener("pointerleave", () => (tooltip.hidden = true));
+  el.addEventListener("pointerleave", () => { tooltip.hidden = true; setHoverZone(-1); });
   el.addEventListener("wheel", (e) => {
     e.preventDefault();
     const r = el.getBoundingClientRect();
     zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.002));
   }, { passive: false });
   el.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".map-controls")) return;
     const r = el.getBoundingClientRect();
     zoomAt(e.clientX - r.left, e.clientY - r.top, 1.6);
   });
   window.addEventListener("resize", () => { clamp(); apply(); });
 
+  layout();
   const saved = JSON.parse(localStorage.getItem("view") || "null");
-  if (saved) Object.assign(view, saved);
-  else {
-    const [lx, ly] = toPx([3222, 3218]);
-    view.x = el.clientWidth / 2 - lx * view.s;
-    view.y = el.clientHeight / 2 - ly * view.s;
-  }
-  clamp();
-  apply();
+  if (saved) { Object.assign(view, saved); clamp(); apply(); }
+  else centerOn(3222, 3218);
 
   return {
+    setMap(name) {
+      if (MAPS[name] === M) return;
+      const [gx, gy] = centerGame();
+      M = MAPS[name];
+      layout();
+      centerOn(gx, gy);
+    },
+    zoomBy(factor) { zoomAt(el.clientWidth / 2, el.clientHeight / 2, factor); },
+    zoomOut() {
+      view.s = minScale();
+      clamp();
+      apply();
+    },
     setVisible(isTrackVisible) {
       polys.forEach((p, i) => p.classList.toggle("hidden", !AREAS[i].t.some(isTrackVisible)));
     },
     highlight(track) {
       polys.forEach((p, i) => p.classList.toggle("playing", AREAS[i].t.includes(track)));
     },
-    zoomOut() {
-      view.s = minScale();
-      view.x = (el.clientWidth - IMG_W * view.s) / 2;
-      view.y = (el.clientHeight - IMG_H * view.s) / 2;
-      apply();
-    },
     focus(track) {
       const i = polys.findIndex((p, k) => AREAS[k].t.includes(track) && !p.classList.contains("hidden") && !p.classList.contains("offmap"));
       if (i < 0) return this.zoomOut();
-      const pts = AREAS[i].p.map(toPx);
+      const pts = AREAS[i].p;
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
       const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      view.s = Math.max(view.s, 0.8);
-      view.x = el.clientWidth / 2 - cx * view.s;
-      view.y = el.clientHeight / 2 - cy * view.s;
-      clamp();
-      apply();
+      centerOn(cx, cy, Math.max(view.s, 0.8));
     },
   };
 })();

@@ -73,3 +73,11 @@ No level gates exist in OSRS, so `LEVELS` in `build-areas.py` is a hand table
 of typical mob combat levels per zone. Grouped list sorts zones by the midpoint
 of that range, unknown zones after, Elsewhere last. Shown in zone headers and
 map tooltips.
+
+## Later additions
+
+2007 map toggle (July 2007 world map from the wiki, 2 px per tile from
+x 2048, y 4160), zoom and locate buttons, faint zone highlight on hover,
+lightbox on the zone picture, Media Session metadata and keys, shareable
+`#Track Name` links, auto-collapsing zone groups (hand-opened ones stay),
+phone layout with the player first, about line.

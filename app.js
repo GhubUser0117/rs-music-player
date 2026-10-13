@@ -4,8 +4,6 @@ const $ = (id) => document.getElementById(id);
 
 const audio = $("audio");
 const list = $("list");
-const zoneOf = [];
-ZONES.forEach((z, zi) => z.t.forEach((t) => (zoneOf[t] = zi)));
 const byName = (a, b) => TRACKS[a].name.localeCompare(TRACKS[b].name);
 
 const state = {
@@ -14,6 +12,7 @@ const state = {
   shuffle: localStorage.getItem("shuffle") === "1",
   repeat: localStorage.getItem("repeat") === "1",
   byZone: localStorage.getItem("byzone") !== "0",
+  oldMap: localStorage.getItem("oldmap") !== "0",
   visible: [],
   visibleSet: new Set(),
 };
@@ -35,6 +34,7 @@ const fmt = (s) => {
 const LVL_MAX = 130; // midpoint level that reads as fully red
 const levels = (z) => !z?.lv ? "lvl ?" : z.lv[1] <= 5 ? "safe" : `lvl ${z.lv[0]} to ${z.lv[1]}`;
 const zoneCtx = (name, tracks) => ({ name, tracks: [...new Set(tracks)].sort(byName), played: new Set() });
+const fullImage = (thumb) => thumb.replace(/\/images\/thumb\/(.+?)\/\d+px-[^?]+/, "/images/$1").replace(/\?.*$/, "");
 
 function makeLi(i) {
   const t = TRACKS[i];
@@ -129,6 +129,7 @@ function step(dir) {
   const r = resolve(dir);
   if (r.ctx) state.ctx = r.ctx;
   play(r.i);
+  map.focus(r.i);
 }
 
 function showQueue() {
@@ -152,6 +153,38 @@ function showQueue() {
   $("now-next").textContent = next ?? "";
 }
 
+function showZone(i) {
+  const z = ZONES[zoneOf[i]];
+  $("now-fig").hidden = !z?.page;
+  $("now-img").hidden = !z?.img;
+  if (z?.img) $("now-img").src = z.img;
+  if (z?.page) {
+    $("now-zone").textContent = z.page;
+    $("now-zone").href = WIKI + encodeURIComponent(z.page.replaceAll(" ", "_"));
+  }
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: TRACKS[i].name,
+      artist: z?.n ?? "Old School RuneScape",
+      album: "Old School RuneScape",
+      artwork: z?.img ? [{ src: z.img, sizes: "400x400", type: "image/png" }] : [],
+    });
+  }
+}
+
+// Open the playing track's zone group, close the ones the user did not open by hand.
+function revealInList(i) {
+  list.querySelector(".playing")?.classList.remove("playing");
+  const li = list.querySelector(`[data-index="${i}"]`);
+  li?.classList.add("playing");
+  const group = li?.closest("details");
+  if (group) {
+    list.querySelectorAll("details[open]").forEach((d) => { if (d !== group && !d.dataset.user) d.open = false; });
+    group.open = true;
+  }
+  li?.scrollIntoView({ block: "nearest" });
+}
+
 function play(i) {
   const t = TRACKS[i];
   if (!t) return;
@@ -161,6 +194,7 @@ function play(i) {
   audio.play().catch(() => {});
   localStorage.setItem("last", i);
   localStorage.setItem("ctx", state.ctx?.name ?? "");
+  history.replaceState(null, "", `#${encodeURIComponent(t.name)}`);
 
   $("now-title").textContent = t.name;
   $("now-meta").textContent = `${t.p2p ? "Members" : "Free to play"} · ${t.len} · ${t.date}`;
@@ -169,20 +203,8 @@ function play(i) {
     href: WIKI + encodeURIComponent(t.name.replaceAll(" ", "_")), target: "_blank", textContent: "[wiki]",
   }));
   document.title = `${t.name} · OSRS Music`;
-  const z = ZONES[zoneOf[i]];
-  $("now-fig").hidden = !z?.page;
-  $("now-img").hidden = !z?.img;
-  if (z?.img) $("now-img").src = z.img;
-  if (z?.page) {
-    $("now-zone").textContent = z.page;
-    $("now-zone").href = WIKI + encodeURIComponent(z.page.replaceAll(" ", "_"));
-  }
-
-  list.querySelector(".playing")?.classList.remove("playing");
-  const li = list.querySelector(`[data-index="${i}"]`);
-  li?.classList.add("playing");
-  if (li?.closest("details")) li.closest("details").open = true;
-  li?.scrollIntoView({ block: "nearest" });
+  showZone(i);
+  revealInList(i);
   map.highlight(i);
   showQueue();
 }
@@ -200,6 +222,13 @@ function setToggle(key, on) {
 }
 
 list.addEventListener("click", (e) => {
+  const summary = e.target.closest("summary");
+  if (summary) {
+    // Default action flips it after this handler, so "closed now" means the user is opening it.
+    const d = summary.parentElement;
+    if (d.open) delete d.dataset.user; else d.dataset.user = "1";
+    return;
+  }
   const li = e.target.closest("li");
   if (!li) return;
   const i = Number(li.dataset.index);
@@ -224,14 +253,25 @@ $("byzone").addEventListener("change", (e) => {
   $("expand").disabled = $("collapse").disabled = !state.byZone;
   render();
 });
+$("oldmap").addEventListener("change", (e) => {
+  state.oldMap = e.target.checked;
+  localStorage.setItem("oldmap", state.oldMap ? "1" : "0");
+  map.setMap(state.oldMap ? "y2007" : "modern");
+});
 $("side").addEventListener("click", () => {
   const left = document.body.classList.toggle("side-left");
   localStorage.setItem("side", left ? "left" : "right");
 });
 document.body.classList.toggle("side-left", localStorage.getItem("side") === "left");
-const setAll = (open) => () => list.querySelectorAll("details").forEach((d) => (d.open = open));
+const setAll = (open) => () => list.querySelectorAll("details").forEach((d) => {
+  d.open = open;
+  if (open) d.dataset.user = "1"; else delete d.dataset.user;
+});
 $("expand").addEventListener("click", setAll(true));
 $("collapse").addEventListener("click", setAll(false));
+$("zoom-in").addEventListener("click", () => map.zoomBy(1.5));
+$("zoom-out").addEventListener("click", () => map.zoomBy(1 / 1.5));
+$("locate").addEventListener("click", () => state.index >= 0 && map.focus(state.index));
 $("play").addEventListener("click", togglePlay);
 $("next").addEventListener("click", () => step(1));
 $("prev").addEventListener("click", () => step(-1));
@@ -244,6 +284,11 @@ $("volume").addEventListener("input", (e) => {
 $("progress").addEventListener("click", (e) => {
   if (audio.duration) audio.currentTime = (e.offsetX / e.currentTarget.clientWidth) * audio.duration;
 });
+$("now-img").addEventListener("click", () => {
+  $("lightbox-img").src = fullImage($("now-img").src);
+  $("lightbox").showModal();
+});
+$("lightbox").addEventListener("click", () => $("lightbox").close());
 
 audio.addEventListener("play", () => ($("play").innerHTML = "&#10074;&#10074;"));
 audio.addEventListener("pause", () => ($("play").innerHTML = "&#9654;"));
@@ -258,6 +303,17 @@ audio.addEventListener("error", () => {
   setTimeout(() => step(1), 1500);
 });
 
+if ("mediaSession" in navigator) {
+  const ms = navigator.mediaSession;
+  ms.setActionHandler("play", () => togglePlay());
+  ms.setActionHandler("pause", () => audio.pause());
+  ms.setActionHandler("previoustrack", () => step(-1));
+  ms.setActionHandler("nexttrack", () => step(1));
+  ms.setActionHandler("seekto", (d) => { audio.currentTime = d.seekTime; });
+  audio.addEventListener("play", () => (ms.playbackState = "playing"));
+  audio.addEventListener("pause", () => (ms.playbackState = "paused"));
+}
+
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input, select")) return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
@@ -270,13 +326,22 @@ setToggle("shuffle", state.shuffle);
 setToggle("repeat", state.repeat);
 $("byzone").checked = state.byZone;
 $("expand").disabled = $("collapse").disabled = !state.byZone;
+$("oldmap").checked = state.oldMap;
+map.setMap(state.oldMap ? "y2007" : "modern");
+render();
+
+const linked = TRACKS.findIndex((t) => t.name === decodeURIComponent(location.hash.slice(1)));
 const last = Number(localStorage.getItem("last"));
-if (TRACKS[last]) {
+if (linked >= 0) {
+  play(linked);
+  map.focus(linked);
+} else if (TRACKS[last]) {
   state.index = last;
   const z = ZONES.find((z) => z.n === localStorage.getItem("ctx"));
   if (z) state.ctx = zoneCtx(z.n, z.t);
   $("now-title").textContent = TRACKS[last].name;
   $("now-unlock").textContent = TRACKS[last].unlock;
+  showZone(last);
   map.highlight(last);
+  render();
 }
-render();
