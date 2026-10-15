@@ -48,10 +48,11 @@ function render() {
   const q = $("search").value.trim().toLowerCase();
   const keep = FILTERS[$("filter").value];
   const maxYear = Number($("era").value);
+  const inZone = new Set(q ? ZONES.flatMap((z) => (z.n.toLowerCase().includes(q) ? z.t : [])) : []);
   state.visible = TRACKS.flatMap((t, i) =>
     keep(t) &&
     Number(t.date.slice(-4)) <= maxYear &&
-    (!q || t.name.toLowerCase().includes(q) || t.unlock.toLowerCase().includes(q))
+    (!q || t.name.toLowerCase().includes(q) || t.unlock.toLowerCase().includes(q) || inZone.has(i))
       ? [i]
       : []
   );
@@ -345,13 +346,14 @@ map.setMap(state.oldMap ? "y2007" : "modern");
 render();
 
 const linked = TRACKS.findIndex((t) => t.name === decodeURIComponent(location.hash.slice(1)));
-const last = Number(localStorage.getItem("last"));
+const firstVisit = localStorage.getItem("last") === null;
+const last = firstVisit ? TRACKS.findIndex((t) => t.name === "Autumn Voyage") : Number(localStorage.getItem("last"));
 if (linked >= 0) {
   play(linked);
   map.focus(linked);
 } else if (TRACKS[last]) {
   state.index = last;
-  const z = ZONES.find((z) => z.n === localStorage.getItem("ctx"));
+  const z = ZONES.find((z) => z.n === (firstVisit ? "Lumbridge" : localStorage.getItem("ctx")));
   if (z) state.ctx = zoneCtx(z.n, z.t);
   $("now-title").textContent = TRACKS[last].name;
   $("now-unlock").textContent = TRACKS[last].unlock;
